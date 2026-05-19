@@ -28,7 +28,11 @@ endif()
 
 find_package(Threads REQUIRED)
 
-add_executable(${PROJECT_NAME} src/main.cpp)
+add_executable(${PROJECT_NAME} 
+    src/main.cpp
+    src/EVCSP.cpp
+)
+
 target_include_directories(${PROJECT_NAME} PRIVATE src/include ${GUROBI_INCLUDE_DIR})
 target_link_libraries(${PROJECT_NAME} PRIVATE ${GUROBI_CPP_LIBRARY} ${GUROBI_LIBRARY} Threads::Threads)
 
@@ -40,14 +44,33 @@ endif()
 
 enable_testing()
 
+include(FetchContent)
+FetchContent_Declare(
+  googletest
+  URL https://github.com/google/googletest/archive/refs/heads/main.zip
+)
+set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)
+FetchContent_MakeAvailable(googletest)
+
 file(GLOB TEST_SOURCES "tests/*.cpp")
 
 foreach(test_file ${TEST_SOURCES})
     get_filename_component(test_name ${test_file} NAME_WE)
     
-    add_executable(${test_name} ${test_file})
+    add_executable(${test_name} 
+        ${test_file}
+        src/EVCSP.cpp
+    )
+    
     target_include_directories(${test_name} PRIVATE src/include ${GUROBI_INCLUDE_DIR})
-    target_link_libraries(${test_name} PRIVATE ${GUROBI_CPP_LIBRARY} ${GUROBI_LIBRARY} Threads::Threads)
+    target_link_libraries(${test_name} 
+        PRIVATE 
+            ${GUROBI_CPP_LIBRARY} 
+            ${GUROBI_LIBRARY} 
+            Threads::Threads
+            GTest::gtest
+            GTest::gtest_main
+    )
     
     add_test(NAME ${test_name} COMMAND ${test_name})
 endforeach()
