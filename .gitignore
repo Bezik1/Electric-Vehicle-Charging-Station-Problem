@@ -1,0 +1,76 @@
+# ==============================================================================
+# Comprehensive .gitignore for C++ Projects (CMake, Gurobi, macOS & Modern IDEs)
+# ==============================================================================
+
+# --- Compiled Objects, Libraries, and Executables ---
+*.a
+*.lib
+*.so
+*.dylib
+*.dll
+*.exe
+*.out
+*.app
+*.o
+*.obj
+
+# --- CMake Build Outputs ---
+# Ignore the entire build directory (default configuration)
+[Bb]uild/
+[Bb]in/
+
+# Individual CMake artifacts (in case build files are generated in-place)
+CMakeFiles/
+CMakeCache.txt
+CMakeUserPresets.json
+cmake_install.cmake
+Makefile
+targets
+compile_commands.json
+
+# --- Gurobi Specific ---
+# Ignore any local license or log files generated during optimization runs
+gurobi.log
+*.lic
+
+# --- macOS Specific ---
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+.DocumentRevisions-V100
+.fseventsd
+.Spotlight-V100
+.Trashes
+.VolumeIcon.icns
+.com.apple.timemachine.donotpresent
+
+# --- Integrated Development Environments (IDEs) ---
+
+# Visual Studio Code
+.vscode/
+!.vscode/extensions.json
+
+# CLion / JetBrains
+.idea/
+*.iws
+*.iml
+cmake-build-*/
+
+# Visual Studio (MSVC)
+.vs/
+*.user
+*.userosscache
+*.sln
+*.suo
+*.vcproj
+*.vcxproj
+*.filters
+
+# --- Temporary / Backup Files ---
+*.swp
+*~
+*.bak
+*.tmp
+*.log
+.clwb/
