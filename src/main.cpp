@@ -1,72 +1,67 @@
-#include <vector>
-#include <print>
-#include <cmath>
-
 #include "EVCSP.hpp"
 
 int main() 
 {
-    double mean_station_energy_demand = 150.0;
-    int num_stations = 5;
-    int map_width = 20;
-    int map_height = 20;
-    
-    std::vector<std::vector<int>> connectivity_map(map_width, std::vector<int>(map_height, 0));
-    std::vector<std::vector<double>> activity_map(map_width, std::vector<double>(map_height, 10.0));
-    std::vector<std::vector<double>> attractiveness_map(map_width, std::vector<double>(map_height, 0.2));
-    std::vector<std::vector<double>> energy_capacity_map(map_width, std::vector<double>(map_height, 300.0));
+    int grid_width = 5;
+    int grid_height = 5;
+    int max_stations_per_cell = 3;
+    double budget = 60000.0;
 
-    for (int x = 0; x < map_width; ++x) 
+    std::vector<std::vector<int>> poi_map = {
+        {1, 1, 0, 1, 1},
+        {1, 0, 1, 1, 0},
+        {1, 1, 1, 1, 1},
+        {0, 1, 0, 1, 1},
+        {1, 1, 1, 0, 1}
+    };
+
+    std::vector<std::vector<double>> demand_map = {
+        {120.0, 80.0, 10.0, 50.0, 200.0},
+        {90.0, 0.0, 150.0, 70.0, 30.0},
+        {40.0, 110.0, 300.0, 85.0, 60.0},
+        {5.0, 95.0, 0.0, 130.0, 45.0},
+        {0.0, 60.0, 75.0, 20.0, 115.0}
+    };
+
+    std::vector<std::vector<double>> land_rental_cost_map = {
+        {1200.0, 1100.0,  800.0, 1500.0, 2200.0},
+        {1000.0,  700.0, 1400.0, 1300.0,  900.0},
+        { 950.0, 1350.0, 2500.0, 1600.0, 1050.0},
+        { 600.0, 1150.0,  500.0, 1200.0,  850.0},
+        { 800.0,  900.0, 1100.0,  700.0, 1300.0}
+    };
+
+    std::vector<std::vector<double>> distances_costs_map(
+        grid_width, std::vector<double>(grid_height, 1.0)
+    );
+
+    for (int i = 0; i < grid_width; ++i)
     {
-        for (int y = 0; y < map_height; ++y) 
+        for (int j = 0; j < grid_height; ++j)
         {
-            if (x == 10 || y == 10) 
-            {
-                activity_map[x][y] = 90.0;
-                attractiveness_map[x][y] = 0.5;
-                energy_capacity_map[x][y] = 400.0;
-            }
-            
-            if (std::abs(x - 10) <= 3 && std::abs(y - 10) <= 3) 
-            {
-                activity_map[x][y] += 20.0;
-                attractiveness_map[x][y] = 0.8;
-            }
-
-            if (x == 9 && y != 10) 
-            {
-                connectivity_map[x][y] = 1;
-            }
-
-            if (x < 4 && y < 4) 
-            {
-                energy_capacity_map[x][y] = 800.0;
-                activity_map[x][y] = 5.0;
-                attractiveness_map[x][y] = 0.1;
-            }
-
-            if (x > 15 && y > 15) 
-            {
-                energy_capacity_map[x][y] = 30.0;
-            }
+            if(poi_map[i][j] == 0)
+                distances_costs_map[i][j] = std::numeric_limits<double>::infinity();
         }
     }
 
-    attractiveness_map[10][4] = 1.0; activity_map[10][4] = 95.0;
-    attractiveness_map[10][16] = 1.0; activity_map[10][16] = 95.0;
-    attractiveness_map[4][10] = 1.0; activity_map[4][10] = 95.0;
-    attractiveness_map[16][10] = 1.0; activity_map[16][10] = 95.0;
+    std::pair<double, double> stations_powers = {22.0, 150.0};
+    std::pair<double, double> initial_costs = {3500.0, 15000.0};
+    std::pair<double, double> maintenance_costs = {200.0, 800.0};
 
-    EVCSP problem{mean_station_energy_demand, num_stations, map_width, map_height};
+    EVCSP solver(grid_width, grid_height, max_stations_per_cell, budget);
 
-    std::printf("Starting EVCSP problem with a 20x20 Grid Roadmap!\n");
-
-    problem(
-        std::move(connectivity_map),
-        std::move(activity_map),
-        std::move(attractiveness_map),
-        std::move(energy_capacity_map)
+    solver(
+        std::move(distances_costs_map),
+        std::move(poi_map),
+        std::move(demand_map),
+        std::move(land_rental_cost_map),
+        std::move(stations_powers),
+        std::move(initial_costs),
+        std::move(maintenance_costs)
     );
+
+    solver.print_solution();
+    solver.print_demand_distribution();
 
     return 0;
 }
