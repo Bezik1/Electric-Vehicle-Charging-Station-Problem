@@ -1,54 +1,29 @@
 #include "EVCSP.hpp"
+#include <nlohmann/json.hpp>
+#include <fstream>
 
 int main() 
 {
-    int grid_width = 5;
-    int grid_height = 5;
-    int max_stations_per_cell = 3;
-    double budget = 60000.0;
+    std::ifstream file("data/maps.json");
+    nlohmann::json data = nlohmann::json::parse(file);
 
-    std::vector<std::vector<int>> poi_map = {
-        {1, 1, 0, 1, 1},
-        {1, 0, 1, 1, 0},
-        {1, 1, 1, 1, 1},
-        {0, 1, 0, 1, 1},
-        {1, 1, 1, 0, 1}
-    };
+    int width = data["width"];
+    int height = data["height"];
 
-    std::vector<std::vector<double>> demand_map = {
-        {120.0, 80.0, 10.0, 50.0, 200.0},
-        {90.0, 0.0, 150.0, 70.0, 30.0},
-        {40.0, 110.0, 300.0, 85.0, 60.0},
-        {5.0, 95.0, 0.0, 130.0, 45.0},
-        {0.0, 60.0, 75.0, 20.0, 115.0}
-    };
+    auto distances_costs_map = data["distances_map"].get<std::vector<std::vector<double>>>();
+    auto demand_map = data["demand_map"].get<std::vector<std::vector<double>>>();
+    auto poi_map = data["poi_map"].get<std::vector<std::vector<int>>>();
+    auto land_rental_cost_map = data["land_rental_cost_map"].get<std::vector<std::vector<double>>>();
 
-    std::vector<std::vector<double>> land_rental_cost_map = {
-        {1200.0, 1100.0,  800.0, 1500.0, 2200.0},
-        {1000.0,  700.0, 1400.0, 1300.0,  900.0},
-        { 950.0, 1350.0, 2500.0, 1600.0, 1050.0},
-        { 600.0, 1150.0,  500.0, 1200.0,  850.0},
-        { 800.0,  900.0, 1100.0,  700.0, 1300.0}
-    };
+    int max_stations_per_cell = 1;
+    double budget = 400'000.0;
 
-    std::vector<std::vector<double>> distances_costs_map(
-        grid_width, std::vector<double>(grid_height, 1.0)
-    );
+    std::pair<double, double> stations_powers = {25.0, 250.0}; 
+    std::pair<double, double> initial_costs = {50'000.0, 150'000.0}; 
+    std::pair<double, double> maintenance_costs = {2500.0, 9000.0};
 
-    for (int i = 0; i < grid_width; ++i)
-    {
-        for (int j = 0; j < grid_height; ++j)
-        {
-            if(poi_map[i][j] == 0)
-                distances_costs_map[i][j] = std::numeric_limits<double>::infinity();
-        }
-    }
-
-    std::pair<double, double> stations_powers = {22.0, 150.0};
-    std::pair<double, double> initial_costs = {3500.0, 15000.0};
-    std::pair<double, double> maintenance_costs = {200.0, 800.0};
-
-    EVCSP solver(grid_width, grid_height, max_stations_per_cell, budget);
+    double mip_gap = 0.007;
+    EVCSP solver(width, height, max_stations_per_cell, budget, mip_gap);
 
     solver(
         std::move(distances_costs_map),

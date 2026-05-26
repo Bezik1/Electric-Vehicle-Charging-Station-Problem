@@ -23,6 +23,14 @@ class EVCSP : public Problem
             double budget
         );
 
+        EVCSP(
+            int grid_width,
+            int grid_height,
+            int max_stations_per_cell,
+            double budget,
+            double mip_gap
+        );
+
         void operator()(
             std::vector<std::vector<double>>&& _distances_costs_map,
             std::vector<std::vector<int>>&& _poi_map,
@@ -171,7 +179,8 @@ class EVCSP : public Problem
         /**
          * @brief Calculates distance from the point (m,n) to point (i,j).
          * 
-         * @details Uses Dijsktra algorithm, to find shortest path. 
+         * @details Uses Dijsktra algorithm, to find shortest path. Selected path must avoid
+         * obstacles (e.g cells with distance value of INF = -1).
          * 
          * @param m x coordinate of origin point.
          * @param n y coordinate of origin point.

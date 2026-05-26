@@ -6,6 +6,20 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
+include(FetchContent)
+
+FetchContent_Declare(
+  json
+  URL https://github.com/nlohmann/json/releases/download/v3.11.3/json.tar.xz
+)
+
+FetchContent_Declare(
+  googletest
+  URL https://github.com/google/googletest/archive/refs/heads/main.zip
+)
+
+FetchContent_MakeAvailable(json googletest)
+
 if(APPLE)
     set(DEFAULT_GUROBI_HOME "/Library/gurobi1302/macos_universal2")
     set(GUROBI_LIB_NAME "gurobi130")
@@ -34,7 +48,12 @@ add_executable(${PROJECT_NAME}
 )
 
 target_include_directories(${PROJECT_NAME} PRIVATE src/include ${GUROBI_INCLUDE_DIR})
-target_link_libraries(${PROJECT_NAME} PRIVATE ${GUROBI_CPP_LIBRARY} ${GUROBI_LIBRARY} Threads::Threads)
+target_link_libraries(${PROJECT_NAME} PRIVATE 
+    ${GUROBI_CPP_LIBRARY} 
+    ${GUROBI_LIBRARY} 
+    Threads::Threads
+    nlohmann_json::nlohmann_json
+)
 
 if(MSVC)
     target_compile_options(${PROJECT_NAME} PRIVATE /W4)
@@ -44,13 +63,7 @@ endif()
 
 enable_testing()
 
-include(FetchContent)
-FetchContent_Declare(
-  googletest
-  URL https://github.com/google/googletest/archive/refs/heads/main.zip
-)
 set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)
-FetchContent_MakeAvailable(googletest)
 
 file(GLOB TEST_SOURCES "tests/*.cpp")
 
@@ -70,6 +83,7 @@ foreach(test_file ${TEST_SOURCES})
             Threads::Threads
             GTest::gtest
             GTest::gtest_main
+            nlohmann_json::nlohmann_json
     )
     
     add_test(NAME ${test_name} COMMAND ${test_name})
