@@ -3,6 +3,7 @@
 # ==============================================================================
 
 # --- Compiled Objects, Libraries, and Executables ---
+/data/*
 *.a
 *.lib
 *.so
