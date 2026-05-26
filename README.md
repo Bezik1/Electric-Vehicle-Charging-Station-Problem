@@ -1,4 +1,21 @@
-#
+# Electric Vehicle Charging Station Problem
+
+`EVCSP` is the problem of optimal allocation of charging station, across given terrain map.
+My implementation solves this problem by taking following parameters: budget, 
+`distances_map`, `demand_map`, `land_rental_cost_map` and `poi_map`. Optimizer want's to minimize
+`total cost`, containing to `users cost` and `operator cost`.
+
+## Map Creator
+For creating mentioned maps necessary for this optimization problem, following map Creator
+was created:
+
+EVCSP Map Creator: [Link](https://github.com/Bezik1/EVCSP-Map-Creator)
+
+It allows user to create each type of map as he pleases and it posess option
+to download created maps in .json format managable, by this C++ application.
+
+Downloaded jso file containing maps, must then be placed in `./data` folder. This
+location is default directory, where model tries to find `maps.json` file.
 
 ## Commands
 
@@ -20,3 +37,44 @@ cmake --build build
 # Runs app.
 ./build/EVCSP_Application
 ```
+
+## Maps
+
+### Distances Map
+Represents obstacles and costs from travelling from
+given node to another.
+
+<img src="assets/distance_map.png">
+
+### Point Of Intrest (POI) Map
+Represents the locations, where we possibly can build
+our electric vehicle charging stations.
+
+<img src="assets/poi_map.png">
+
+### Demand Map
+Represents energy consumption demand of electric vehicle users,
+at a given piece of terrain.
+
+<img src="assets/demand_map.png">
+
+### Land Rental Cost Map
+Represents rental cost of specific point of intreset on the map.
+
+<img src="assets/land_rental_cost_map.png">
+
+### Solution
+For this particular problem, following model solution was created:
+
+#### Map
+<img src="assets/solution.png">
+
+#### Demand Allocations
+<img src="assets/solution_allocations.png">
+
+## Technologies
+<p align="center">
+    <a href="https://skillicons.dev">
+        <img src="https://skillicons.dev/icons?i=cpp,cmake,vscode,github,git" />
+    </a>
+</p>
