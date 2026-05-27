@@ -1,0 +1,82 @@
+\documentclass{article}
+\usepackage{graphicx}
+\usepackage{amsmath}  
+\usepackage{amsfonts}  
+\usepackage{bm}
+
+\title{Electric Vehicle Charging Station Problem}
+\author{Mateusz Adamowicz 284215}
+\date{27 May 2026}
+
+\begin{document}
+
+\maketitle
+
+\section{Introduction}
+Electric Vehicle Charging Station Problem is optimization problem of choosing locations, number and types of charging stations for electric cars. In this paper linear programming and meta heuristic approach will be evaluated and implemented in order to analyze it deeply.
+
+\section{Mathematical Model}
+EVCSP can be described, by the following mathematical interpretation. 
+
+
+\subsubsection{Arguments}
+Let the grid be defined by dimensions $W \times H$. We define the following sets and parameters:
+
+\begin{itemize}
+    \item $P_{i,j} \in \{0, 1\}$: POI map, where 1 means a station can be built at $(i,j)$.
+    \item $D_{m,n}$: Energy demand at cell $(m,n)$ [kWh].
+    \item $R_{i,j}$: Land rental cost at cell $(i,j)$.
+    \item $d(m,n,i,j)$: Distance between cells $(m,n)$ and $(i,j)$.
+    \item $C_{init}^{L2}, C_{init}^{L3}$: Installation costs for Level 2 and Level 3 stations.
+    \item $C_{maint}^{L2}, C_{maint}^{L3}$: Maintenance costs for Level 2 and Level 3 stations.
+    \item $P_{power}^{L2}, P_{power}^{L3}$: Power capacity of stations.
+    \item $B$: Total available budget.
+    \item $S_{max}$: Maximum number of stations per cell.
+\end{itemize}
+
+\subsubsection{Decision Variables}
+\begin{itemize}
+    \item $x_{i,j} \in \{0, 1\}$: Binary variable, 1 if any station is built at $(i,j)$.
+    \item $s_{i,j}^{L2}, s_{i,j}^{L3} \in \mathbb{Z}_{\ge 0}$: Number of L2 and L3 stations at $(i,j)$.
+    \item $\alpha_{m,n,i,j} \in [0, 1]$: Fraction of demand from $(m,n)$ assigned to station at $(i,j)$.
+\end{itemize}
+
+\subsubsection{Objective Function}
+The goal is to minimize the total cost $Z = C_{operator} + C_{users}$:
+\begin{equation}
+    \min Z = \sum_{i,j} \left( s_{i,j}^{L2} \cdot C_{total}^{L2} + s_{i,j}^{L3} \cdot C_{total}^{L3} + x_{i,j} \cdot R_{i,j} \right) + \sum_{m,n,i,j} D_{m,n} \cdot \alpha_{m,n,i,j} \cdot d(m,n,i,j)
+\end{equation}
+where $C_{total} = C_{init} + C_{maint}$.
+
+\subsubsection{Constraints}
+\begin{enumerate}
+    \item \textbf{Demand Satisfaction:} All demands must be fully met.
+    \begin{equation}
+        \sum_{i,j} \alpha_{m,n,i,j} = 1, \quad \forall (m,n)
+    \end{equation}
+    \item \textbf{Capacity:} Total demand allocated to a station cannot exceed its capacity.
+    \begin{equation}
+        \sum_{m,n} D_{m,n} \cdot \alpha_{m,n,i,j} \le (s_{i,j}^{L2} \cdot P_{power}^{L2} + s_{i,j}^{L3} \cdot P_{power}^{L3}) \cdot 24, \quad \forall (i,j)
+    \end{equation}
+    \item \textbf{POI and Construction:} Stations only can be built only, at POIs and within limits.
+    \begin{equation}
+        s_{i,j}^{L2} + s_{i,j}^{L3} \le S_{max} \cdot x_{i,j}, \quad \forall (i,j)
+    \end{equation}
+    \begin{equation}
+        x_{i,j} \le P_{i,j}, \quad \forall (i,j)
+    \end{equation}
+    \item \textbf{Budget:} Total investment cannot exceed $B$.
+    \begin{equation}
+        \sum_{i,j} (s_{i,j}^{L2} \cdot C_{init}^{L2} + s_{i,j}^{L3} \cdot C_{init}^{L3} + x_{i,j} \cdot R_{i,j}) \le B
+    \end{equation}
+\end{enumerate}
+
+\section{Linear Programming Model}
+
+\section{Meta Heuristic Model}
+
+\section{Conclusion}
+
+
+
+\end{document}

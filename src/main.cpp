@@ -4,25 +4,28 @@
 
 int main() 
 {
-    std::ifstream file("data/maps.json");
-    nlohmann::json data = nlohmann::json::parse(file);
+    std::ifstream mapFile("data/maps.json");
+    std::ifstream hyperparametersFile("data/hyperparameters.json");
 
-    int width = data["width"];
-    int height = data["height"];
+    nlohmann::json maps = nlohmann::json::parse(mapFile);
+    nlohmann::json hyperparameters = nlohmann::json::parse(hyperparametersFile);
 
-    auto distances_costs_map = data["distances_map"].get<std::vector<std::vector<double>>>();
-    auto demand_map = data["demand_map"].get<std::vector<std::vector<double>>>();
-    auto poi_map = data["poi_map"].get<std::vector<std::vector<int>>>();
-    auto land_rental_cost_map = data["land_rental_cost_map"].get<std::vector<std::vector<double>>>();
+    int width = maps["width"];
+    int height = maps["height"];
 
-    int max_stations_per_cell = 1;
-    double budget = 400'000.0;
+    auto distances_costs_map = maps["distances_map"].get<std::vector<std::vector<double>>>();
+    auto demand_map = maps["demand_map"].get<std::vector<std::vector<double>>>();
+    auto poi_map = maps["poi_map"].get<std::vector<std::vector<int>>>();
+    auto land_rental_cost_map = maps["land_rental_cost_map"].get<std::vector<std::vector<double>>>();
 
-    std::pair<double, double> stations_powers = {25.0, 250.0}; 
-    std::pair<double, double> initial_costs = {50'000.0, 150'000.0}; 
-    std::pair<double, double> maintenance_costs = {2500.0, 9000.0};
+    int max_stations_per_cell = hyperparameters["max_stations_per_cell"].get<int>();
+    double budget = hyperparameters["budget"].get<double>();
 
-    double mip_gap = 0.007;
+    auto stations_powers = hyperparameters["stations_powers"].get<std::pair<double, double>>();
+    auto initial_costs = hyperparameters["initial_costs"].get<std::pair<double, double>>();
+    auto maintenance_costs = hyperparameters["maintenance_costs"].get<std::pair<double, double>>();
+
+    double mip_gap = hyperparameters["mip_gap"].get<double>();
     EVCSP solver(width, height, max_stations_per_cell, budget, mip_gap);
 
     solver(
