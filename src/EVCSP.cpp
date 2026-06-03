@@ -75,7 +75,9 @@ double EVCSP::calculate_distance(int m, int n, int i, int j) const
     if (distances_costs_map[i][j] == INF_VAL)
         return std::numeric_limits<double>::infinity();
 
-    auto find_nearest_valid = [&](int start_x, int start_y) -> std::pair<int, int> {
+    double distanceToNearestValid = 0;
+    auto find_nearest_valid = [&](int start_x, int start_y) -> std::pair<int, int>
+    {
         if (distances_costs_map[start_x][start_y] != INF_VAL)
             return {start_x, start_y};
 
@@ -85,14 +87,20 @@ double EVCSP::calculate_distance(int m, int n, int i, int j) const
         q.push({start_x, start_y});
         visited[start_x][start_y] = true;
 
-        while(!q.empty()){
-            auto [cx, cy] = q.front(); q.pop();
+        while(!q.empty())
+        {
+            distanceToNearestValid += 1;
+            auto [cx, cy] = q.front();
+            q.pop();
 
-            for(const auto& [dx, dy] : DIRECTIONS){
-                int nx = cx + dx; int ny = cy + dy;
+            for(const auto& [dx, dy] : DIRECTIONS)
+            {
+                int nx = cx + dx;
+                int ny = cy + dy;
 
-                if(nx >= 0 && nx < grid_width && ny >= 0 && ny < grid_height && !visited[nx][ny]){
-                    if(distances_costs_map[nx][ny] != INF_VAL)
+                if(nx >= 0 && nx < grid_width && ny >= 0 && ny < grid_height && !visited[nx][ny])
+                {
+                    if (distances_costs_map[nx][ny] != INF_VAL)
                         return {nx, ny};
 
                     visited[nx][ny] = true;
@@ -109,8 +117,8 @@ double EVCSP::calculate_distance(int m, int n, int i, int j) const
     std::priority_queue<Node, std::vector<Node>, std::greater<Node>> queue;
     std::vector<std::vector<double>> dist(grid_width, std::vector<double>(grid_height, std::numeric_limits<double>::infinity()));
 
-    dist[actual_start.first][actual_start.second] = 0.0;
-    queue.push({0.0, actual_start});
+    dist[actual_start.first][actual_start.second] = distanceToNearestValid;
+    queue.push({distanceToNearestValid, actual_start});
 
     while (!queue.empty())
     {
@@ -124,7 +132,10 @@ double EVCSP::calculate_distance(int m, int n, int i, int j) const
         for (const auto& [dx, dy] : DIRECTIONS)
         {
             int nx = x + dx; int ny = y + dy;
-            if (nx < 0 || nx >= grid_width || ny < 0 || ny >= grid_height || distances_costs_map[nx][ny] == INF_VAL) continue;
+
+            if (nx < 0 || nx >= grid_width || ny < 0 || ny >= grid_height || distances_costs_map[nx][ny] == INF_VAL)
+                continue;
+
             double weight = (distances_costs_map[nx][ny] <= 0) ? 1.0 : distances_costs_map[nx][ny];
             if (current_d + weight < dist[nx][ny]) {
                 dist[nx][ny] = current_d + weight;
