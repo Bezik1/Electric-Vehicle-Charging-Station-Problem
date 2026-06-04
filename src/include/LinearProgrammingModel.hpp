@@ -7,23 +7,24 @@
 
 #include "gurobi_c++.h"
 
-#include "Problem.hpp"
+#include "Model.hpp"
+#include "GurobiModel.hpp"
 
 /**
  * @brief Electric Vehicle Charging Station Problem.
  * 
  */
-class EVCSP : public Problem
+class LinearProgrammingModel : public GurobiModel, public Model
 {
     public:
-        EVCSP(
+        LinearProgrammingModel(
             int grid_width,
             int grid_height,
             int max_stations_per_cell,
             double budget
         );
 
-        EVCSP(
+        LinearProgrammingModel(
             int grid_width,
             int grid_height,
             int max_stations_per_cell,
@@ -32,14 +33,14 @@ class EVCSP : public Problem
         );
 
         void operator()(
-            std::vector<std::vector<double>>&& _distances_costs_map,
-            std::vector<std::vector<int>>&& _poi_map,
-            std::vector<std::vector<double>>&& _demand_map,
-            std::vector<std::vector<double>>&& _land_rental_cost_map,
-            std::pair<double, double>&& _stations_powers,
-            std::pair<double, double>&& _initial_costs,
-            std::pair<double, double>&& _maintenance_costs
-        );
+            std::vector<std::vector<double>> _distances_costs_map,
+            std::vector<std::vector<int>> _poi_map,
+            std::vector<std::vector<double>> _demand_map,
+            std::vector<std::vector<double>> _land_rental_cost_map,
+            std::pair<double, double> _stations_powers,
+            std::pair<double, double> _initial_costs,
+            std::pair<double, double> _maintenance_costs
+        ) override;
 
         void build_variables() override;
 
@@ -123,8 +124,19 @@ class EVCSP : public Problem
          */
         void build_constraints() override;
 
-        void print_solution();
-        void print_demand_distribution();
+        void print_solution() override;
+        
+        void print_demand_distribution() override;
+        
+        struct Solution {
+            std::vector<std::vector<int>> station_location;
+            std::vector<std::vector<int>> l2_station_location;
+            std::vector<std::vector<int>> l3_station_location;
+            std::vector<std::vector<std::vector<std::vector<double>>>> demand_allocation_map;
+            double total_cost;
+        };
+
+        Solution get_solution() const;
 
     private:
         GRBEnv env;
@@ -189,6 +201,8 @@ class EVCSP : public Problem
          * @return double distance.
          */
         double calculate_distance(int m, int n, int i, int j) const;
+        
+        std::pair<double, std::pair<int, int>> find_nearest_valid(int start_x, int start_y) const;
 
         /**
          * @brief Binary station location map. Shape: [grid_width, grid_height].
@@ -215,7 +229,9 @@ class EVCSP : public Problem
          */
         std::vector<std::vector<std::vector<std::vector<GRBVar>>>> demand_allocation_map;
 
-        static constexpr char* MODEL_NAME = "Electric Vehicle Charging Station Problem";
+        static constexpr double INF_VAL = -1.0;
+        static constexpr double DEFAULT_MIP_GAP = 0.01;
+        static constexpr char *MODEL_NAME = "Electric Vehicle Charging Station Problem";
         static constexpr std::array<std::pair<int, int>, 4> DIRECTIONS = {{
             {1, 0},
             {-1, 0},
