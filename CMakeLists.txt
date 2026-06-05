@@ -55,6 +55,8 @@ set(COMMON_SOURCES
     src/LinearProgrammingModel.cpp
     src/MetaheuristicModel.cpp
     src/Evaluator.cpp
+    src/Bacterium.cpp
+    src/Maps.cpp
 )
 
 add_executable(${PROJECT_NAME} 

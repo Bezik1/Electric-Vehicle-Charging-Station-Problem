@@ -3,7 +3,7 @@
 # ==============================================================================
 
 # --- Compiled Objects, Libraries, and Executables ---
-/data/*
+/data/maps/*
 *.a
 *.lib
 *.so

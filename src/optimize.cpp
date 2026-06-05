@@ -1,6 +1,7 @@
 #include "LinearProgrammingModel.hpp"
 #include "MetaheuristicModel.hpp"
 #include "Evaluator.hpp"
+#include "Maps.hpp"
 
 #include <nlohmann/json.hpp>
 #include <dlib/optimization.h>
@@ -15,13 +16,10 @@ struct Context {
     int height;
     int max_stations_per_cell;
     double budget;
-    std::vector<std::vector<double>> distances_costs_map;
-    std::vector<std::vector<int>> poi_map;
-    std::vector<std::vector<double>> demand_map;
-    std::vector<std::vector<double>> land_rental_cost_map;
     std::pair<double, double> stations_powers;
     std::pair<double, double> initial_costs;
     std::pair<double, double> maintenance_costs;
+    const Maps* map_data;
 };
 
 double objective_function(const dlib::matrix<double, 0, 1>& params, const Context& ctx) {
@@ -33,78 +31,119 @@ double objective_function(const dlib::matrix<double, 0, 1>& params, const Contex
     double elimination_prob = params(5);
 
     MetaheuristicModel model(
-        ctx.width, ctx.height, ctx.max_stations_per_cell,
+        ctx.max_stations_per_cell,
         bacteria_count, hemotaxis_steps, swimming_steps,
         reproduction_steps, elimination_steps, elimination_prob, ctx.budget
     );
 
     model(
-        ctx.distances_costs_map, ctx.poi_map, ctx.demand_map,
-        ctx.land_rental_cost_map, ctx.stations_powers,
-        ctx.initial_costs, ctx.maintenance_costs
+        *ctx.map_data,
+        ctx.stations_powers,
+        ctx.initial_costs, 
+        ctx.maintenance_costs
     );
 
     return model.best_cost;
 }
 
 int main() {
-    std::ifstream mapFile("data/maps.json");
-    std::ifstream hyperparametersFile("data/hyperparameters.json");
+    std::ifstream map_file("data/maps/maps.json");
+    std::ifstream hyperparameters_file("data/parameters/hyperparameters.json");
+    std::ifstream problem_parameters_file("data/parameters/problem_parameters.json");
     
-    nlohmann::json maps = nlohmann::json::parse(mapFile);
-    nlohmann::json hyperparameters = nlohmann::json::parse(hyperparametersFile);
+    nlohmann::json maps = nlohmann::json::parse(map_file);
+    nlohmann::json hyperparameters = nlohmann::json::parse(hyperparameters_file);
+    nlohmann::json problem_parameters = nlohmann::json::parse(problem_parameters_file);
 
     Context ctx;
     ctx.width = maps["width"];
     ctx.height = maps["height"];
-    ctx.distances_costs_map = maps["distances_map"].get<std::vector<std::vector<double>>>();
-    ctx.demand_map = maps["demand_map"].get<std::vector<std::vector<double>>>();
-    ctx.poi_map = maps["poi_map"].get<std::vector<std::vector<int>>>();
-    ctx.land_rental_cost_map = maps["land_rental_cost_map"].get<std::vector<std::vector<double>>>();
-    ctx.max_stations_per_cell = hyperparameters["max_stations_per_cell"].get<int>();
-    ctx.budget = hyperparameters["budget"].get<double>();
-    ctx.stations_powers = hyperparameters["stations_powers"].get<std::pair<double, double>>();
-    ctx.initial_costs = hyperparameters["initial_costs"].get<std::pair<double, double>>();
-    ctx.maintenance_costs = hyperparameters["maintenance_costs"].get<std::pair<double, double>>();
+    
+    auto distances_costs_map = maps["distances_map"].get<std::vector<std::vector<double>>>();
+    auto demand_map = maps["demand_map"].get<std::vector<std::vector<double>>>();
+    auto poi_map = maps["poi_map"].get<std::vector<std::vector<int>>>();
+    auto land_rental_cost_map = maps["land_rental_cost_map"].get<std::vector<std::vector<double>>>();
+
+    ctx.max_stations_per_cell = problem_parameters["max_stations_per_cell"].get<int>();
+    ctx.budget = problem_parameters["budget"].get<double>();
+    ctx.stations_powers = problem_parameters["stations_powers"].get<std::pair<double, double>>();
+    ctx.initial_costs = problem_parameters["initial_costs"].get<std::pair<double, double>>();
+    ctx.maintenance_costs = problem_parameters["maintenance_costs"].get<std::pair<double, double>>();
+
+    double mip_gap = problem_parameters["mip_gap"].get<double>();
+
+    Maps map_data(
+        ctx.width, 
+        ctx.height, 
+        distances_costs_map, 
+        poi_map, 
+        demand_map, 
+        land_rental_cost_map
+    );
+    ctx.map_data = &map_data;
 
     dlib::matrix<double, 0, 1> lower_bound(6), upper_bound(6);
-    lower_bound = 50, 20, 2, 2, 2, 0.05;
-    upper_bound = 250, 120, 10, 8, 8, 0.40;
+    lower_bound = 10, 5, 1, 2, 1, 0.01;
+    upper_bound = 100, 50, 10, 10, 5, 0.50;
+
+    std::println("Starting hyperparameter optimization...");
 
     auto result = dlib::find_min_global(
         [&ctx](const dlib::matrix<double, 0, 1>& p) { return objective_function(p, ctx); },
         lower_bound,
         upper_bound,
-        dlib::max_function_calls(60)
+        dlib::max_function_calls(50)
     );
 
     MetaheuristicModel meta_solver(
-        ctx.width, ctx.height, ctx.max_stations_per_cell,
+        ctx.max_stations_per_cell,
         static_cast<int>(result.x(0)), static_cast<int>(result.x(1)),
         static_cast<int>(result.x(2)), static_cast<int>(result.x(3)),
         static_cast<int>(result.x(4)), result.x(5), ctx.budget
     );
 
     meta_solver(
-        ctx.distances_costs_map, ctx.poi_map, ctx.demand_map,
-        ctx.land_rental_cost_map, ctx.stations_powers,
-        ctx.initial_costs, ctx.maintenance_costs
+        map_data,
+        ctx.stations_powers,
+        ctx.initial_costs,
+        ctx.maintenance_costs
     );
 
-    LinearProgrammingModel lp_solver(ctx.width, ctx.height, ctx.max_stations_per_cell, ctx.budget, hyperparameters["mip_gap"].get<double>());
-    lp_solver(ctx.distances_costs_map, ctx.poi_map, ctx.demand_map, ctx.land_rental_cost_map, ctx.stations_powers, ctx.initial_costs, ctx.maintenance_costs);
+    LinearProgrammingModel solver(ctx.width, ctx.height, ctx.max_stations_per_cell, ctx.budget, mip_gap);
+    solver(
+        map_data,
+        ctx.stations_powers,
+        ctx.initial_costs,
+        ctx.maintenance_costs
+    );
 
-    Evaluator evaluator(meta_solver);
-    const auto& lp_sol = lp_solver.get_solution();
-    const auto& meta_sol = *meta_solver.best_bacterium;
+    Evaluator evaluator(map_data, ctx.stations_powers, ctx.initial_costs, ctx.maintenance_costs, ctx.budget);
 
-    std::println("Tuned Parameters: B:{} H:{} S:{} R:{} E:{} Prob:{:.2f}", 
+    const auto& solver_solution = solver.get_solution();
+    const auto& meta_solver_solution = *meta_solver.best_bacterium;
+
+    std::println("--- Optimization Finished ---");
+    std::println("Best Hyperparameters found: B:{} H:{} S:{} R:{} E:{} Prob:{:.2f}", 
         static_cast<int>(result.x(0)), static_cast<int>(result.x(1)), 
         static_cast<int>(result.x(2)), static_cast<int>(result.x(3)), 
         static_cast<int>(result.x(4)), result.x(5));
 
-    std::println("Linear Programming Model: {:.2f}", evaluator.evaluate(lp_sol.station_location, lp_sol.l2_station_location, lp_sol.l3_station_location, lp_sol.demand_allocation_map));
-    std::println("Meta Heuristic Model: {:.2f}", evaluator.evaluate(meta_sol.station_location, meta_sol.l2_station_location, meta_sol.l3_station_location, meta_sol.demand_allocation_map));
+    double lp_cost = evaluator.evaluate(
+        solver_solution.station_location, 
+        solver_solution.l2_station_location, 
+        solver_solution.l3_station_location, 
+        solver_solution.demand_allocation_map
+    );
+
+    double meta_cost = evaluator.evaluate(
+        meta_solver_solution.station_location, 
+        meta_solver_solution.l2_station_location, 
+        meta_solver_solution.l3_station_location, 
+        meta_solver_solution.demand_allocation_map
+    );
+
+    std::println("Linear Programming Model: {:.2f}", lp_cost);
+    std::println("Meta Heuristic Model (Tuned): {:.2f}", meta_cost);
 
     return 0;
 }

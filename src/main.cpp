@@ -1,6 +1,7 @@
 #include "LinearProgrammingModel.hpp"
 #include "MetaheuristicModel.hpp"
 #include "Evaluator.hpp"
+#include "Maps.hpp"
 
 #include <nlohmann/json.hpp>
 #include <fstream>
@@ -8,11 +9,13 @@
 
 int main() 
 {
-    std::ifstream mapFile("data/maps.json");
-    std::ifstream hyperparametersFile("data/hyperparameters.json");
+    std::ifstream map_file("data/maps/maps.json");
+    std::ifstream hyperparameters_file("data/parameters/hyperparameters.json");
+    std::ifstream problem_parameters_file("data/parameters/problem_parameters.json");
     
-    nlohmann::json maps = nlohmann::json::parse(mapFile);
-    nlohmann::json hyperparameters = nlohmann::json::parse(hyperparametersFile);
+    nlohmann::json maps = nlohmann::json::parse(map_file);
+    nlohmann::json hyperparameters = nlohmann::json::parse(hyperparameters_file);
+    nlohmann::json problem_parameters = nlohmann::json::parse(problem_parameters_file);
 
     int width = maps["width"];
     int height = maps["height"];
@@ -22,14 +25,14 @@ int main()
     auto poi_map = maps["poi_map"].get<std::vector<std::vector<int>>>();
     auto land_rental_cost_map = maps["land_rental_cost_map"].get<std::vector<std::vector<double>>>();
 
-    int max_stations_per_cell = hyperparameters["max_stations_per_cell"].get<int>();
-    double budget = hyperparameters["budget"].get<double>();
+    int max_stations_per_cell = problem_parameters["max_stations_per_cell"].get<int>();
+    double budget = problem_parameters["budget"].get<double>();
 
-    auto stations_powers = hyperparameters["stations_powers"].get<std::pair<double, double>>();
-    auto initial_costs = hyperparameters["initial_costs"].get<std::pair<double, double>>();
-    auto maintenance_costs = hyperparameters["maintenance_costs"].get<std::pair<double, double>>();
+    auto stations_powers = problem_parameters["stations_powers"].get<std::pair<double, double>>();
+    auto initial_costs = problem_parameters["initial_costs"].get<std::pair<double, double>>();
+    auto maintenance_costs = problem_parameters["maintenance_costs"].get<std::pair<double, double>>();
 
-    double mip_gap = hyperparameters["mip_gap"].get<double>();
+    double mip_gap = problem_parameters["mip_gap"].get<double>();
 
     int bacteria_count = hyperparameters["bacteria_count"].get<int>();
     int hemotaxis_steps = hyperparameters["hemotaxis_steps"].get<int>();
@@ -39,21 +42,33 @@ int main()
     int elimination_dispersal_steps = hyperparameters["elimination_dispersal_steps"].get<int>();
     double elimination_dispersal_prob = hyperparameters["elimination_dispersal_prob"].get<double>();
 
+    Maps map_data(
+        width, 
+        height, 
+        distances_costs_map, 
+        poi_map, 
+        demand_map, 
+        land_rental_cost_map
+    );
+
     LinearProgrammingModel solver(width, height, max_stations_per_cell, budget, mip_gap);
 
     MetaheuristicModel meta_solver(
-        width, height, max_stations_per_cell, bacteria_count,
+        max_stations_per_cell, bacteria_count,
         hemotaxis_steps, swimming_steps, reproduction_steps,
         elimination_dispersal_steps, elimination_dispersal_prob, budget
     );
 
-    Evaluator evaluator(meta_solver);
+    Evaluator evaluator(
+        map_data,
+        stations_powers,
+        initial_costs,
+        maintenance_costs,
+        budget
+    );
 
     meta_solver(
-        distances_costs_map,
-        poi_map,
-        demand_map,
-        land_rental_cost_map,
+        map_data,
         stations_powers,
         initial_costs,
         maintenance_costs
@@ -62,12 +77,8 @@ int main()
     meta_solver.print_solution();
     meta_solver.print_demand_distribution();
 
-
     solver(
-        distances_costs_map,
-        poi_map,
-        demand_map,
-        land_rental_cost_map,
+        map_data,
         stations_powers,
         initial_costs,
         maintenance_costs

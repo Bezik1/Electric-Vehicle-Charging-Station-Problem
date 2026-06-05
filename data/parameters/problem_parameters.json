@@ -1,0 +1,17 @@
+{
+    "max_stations_per_cell": 1,
+    "budget": 380000.0,
+    "mip_gap": 0.00,
+    "stations_powers": [
+        22.0,
+        250.0
+    ],
+    "initial_costs": [
+        50000.0,
+        150000.0
+    ],
+    "maintenance_costs": [
+        2500.0,
+        9000.0
+    ]
+}
