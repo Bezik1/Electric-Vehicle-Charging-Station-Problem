@@ -7,23 +7,26 @@
 
 #include "gurobi_c++.h"
 
-#include "Problem.hpp"
+#include "Model.hpp"
+#include "GurobiModel.hpp"
+#include "Solution.hpp"
+#include "SolutionPrinter.hpp"
+#include "Maps.hpp"
 
 /**
  * @brief Electric Vehicle Charging Station Problem.
- * 
- */
-class EVCSP : public Problem
+ * */
+class LinearProgrammingModel : public GurobiModel, public Model
 {
     public:
-        EVCSP(
+        explicit LinearProgrammingModel(
             int grid_width,
             int grid_height,
             int max_stations_per_cell,
             double budget
         );
 
-        EVCSP(
+        explicit LinearProgrammingModel(
             int grid_width,
             int grid_height,
             int max_stations_per_cell,
@@ -32,14 +35,11 @@ class EVCSP : public Problem
         );
 
         void operator()(
-            std::vector<std::vector<double>>&& _distances_costs_map,
-            std::vector<std::vector<int>>&& _poi_map,
-            std::vector<std::vector<double>>&& _demand_map,
-            std::vector<std::vector<double>>&& _land_rental_cost_map,
-            std::pair<double, double>&& _stations_powers,
-            std::pair<double, double>&& _initial_costs,
-            std::pair<double, double>&& _maintenance_costs
-        );
+            const Maps &_map_data,
+            std::pair<double, double> _stations_powers,
+            std::pair<double, double> _initial_costs,
+            std::pair<double, double> _maintenance_costs
+        ) override;
 
         void build_variables() override;
 
@@ -123,8 +123,9 @@ class EVCSP : public Problem
          */
         void build_constraints() override;
 
-        void print_solution();
-        void print_demand_distribution();
+        Solution get_solution() const override;
+
+        std::unique_ptr<SolutionPrinter> printer;
 
     private:
         GRBEnv env;
@@ -135,91 +136,34 @@ class EVCSP : public Problem
         int max_stations_per_cell;
         double budget;
 
-        /**
-         * @brief Map of distances from current cell (i,j) to one of it's neighbours.
-         * Shape: [grid_width, grid_height].
-         * 
-         */
-        std::vector<std::vector<double>> distances_costs_map;
-
-        /**
-         * @brief Map of Points Of Intrest. It represents map of poins on,
-         * where there is a possibility of creating a station.
-         * Shape: [grid_width, grid_height].
-         * 
-         */
-        std::vector<std::vector<int>> poi_map;
-
-        /**
-         * @brief Map of user energy-demand per each point, in kWh.
-         * Shape: [grid_width, grid_height].
-         * 
-         */
-        std::vector<std::vector<double>> demand_map;
-
-        /**
-         * @brief Map of rental cost of each potential point on
-         * the grid.
-         * Shape: [grid_width, grid_height].
-         * 
-         */
-        std::vector<std::vector<double>> land_rental_cost_map;
+        const Maps* map_data;
 
         std::pair<double, double> stations_powers;
         std::pair<double, double> initial_costs;
         std::pair<double, double> maintenance_costs;
 
         /**
-         * @brief Value of the distance from (m,n) cell, to (i,j) cell.
-         * Shape: [grid_width, grid_height, grid_width, grid_height].
-         */
-        std::vector<std::vector<std::vector<std::vector<double>>>> distances_from_to;
-
-
-        /**
-         * @brief Calculates distance from the point (m,n) to point (i,j).
-         * 
-         * @details Uses Dijsktra algorithm, to find shortest path. Selected path must avoid
-         * obstacles (e.g cells with distance value of INF = -1).
-         * 
-         * @param m x coordinate of origin point.
-         * @param n y coordinate of origin point.
-         * @param i x coordinate of destination point.
-         * @param j y coordinate of destinatio point.
-         * @return double distance.
-         */
-        double calculate_distance(int m, int n, int i, int j) const;
-
-        /**
          * @brief Binary station location map. Shape: [grid_width, grid_height].
-         * 
-         */
+         * */
         std::vector<std::vector<GRBVar>> station_location;
 
         /**
          * @brief Integer L2 station location map. Shape: [grid_width, grid_height].
-         * 
-         */
+         * */
         std::vector<std::vector<GRBVar>> l2_station_location;
 
         /**
          * @brief Integer L3 station location map. Shape: [grid_width, grid_height].
-         * 
-         */
+         * */
         std::vector<std::vector<GRBVar>> l3_station_location;
 
         /**
          * @brief  Allocation map of demands from cell (m,n) into station in (i,j).
          * Shape: [grid_width, grid_height, grid_width, grid_height].
-         * 
-         */
+         * */
         std::vector<std::vector<std::vector<std::vector<GRBVar>>>> demand_allocation_map;
 
-        static constexpr char* MODEL_NAME = "Electric Vehicle Charging Station Problem";
-        static constexpr std::array<std::pair<int, int>, 4> DIRECTIONS = {{
-            {1, 0},
-            {-1, 0},
-            {0, 1},
-            {0, -1}
-        }};
+        static constexpr double EPSILON = 1e-4; 
+        static constexpr double DEFAULT_MIP_GAP = 0.01;
+        static constexpr char *MODEL_NAME = "Electric Vehicle Charging Station Problem";
 };

@@ -1,4 +1,8 @@
 cmake_minimum_required(VERSION 3.20)
+
+set(CMAKE_POLICY_VERSION_MINIMUM 3.5)
+cmake_policy(SET CMP0135 NEW)
+
 project(EVCSP_Application LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 23)
@@ -18,7 +22,12 @@ FetchContent_Declare(
   URL https://github.com/google/googletest/archive/refs/heads/main.zip
 )
 
-FetchContent_MakeAvailable(json googletest)
+FetchContent_Declare(
+  dlib
+  URL https://github.com/davisking/dlib/archive/refs/heads/master.zip
+)
+
+FetchContent_MakeAvailable(json googletest dlib)
 
 if(APPLE)
     set(DEFAULT_GUROBI_HOME "/Library/gurobi1302/macos_universal2")
@@ -42,9 +51,19 @@ endif()
 
 find_package(Threads REQUIRED)
 
+set(COMMON_SOURCES
+    src/LinearProgrammingModel.cpp
+    src/MetaheuristicModel.cpp
+    src/Evaluator.cpp
+    src/Bacterium.cpp
+    src/Maps.cpp
+    src/Validator.cpp
+    src/SolutionPrinter.cpp
+)
+
 add_executable(${PROJECT_NAME} 
     src/main.cpp
-    src/EVCSP.cpp
+    ${COMMON_SOURCES}
 )
 
 target_include_directories(${PROJECT_NAME} PRIVATE src/include ${GUROBI_INCLUDE_DIR})
@@ -53,12 +72,29 @@ target_link_libraries(${PROJECT_NAME} PRIVATE
     ${GUROBI_LIBRARY} 
     Threads::Threads
     nlohmann_json::nlohmann_json
+    dlib::dlib
+)
+
+add_executable(optimize 
+    src/optimize.cpp
+    ${COMMON_SOURCES}
+)
+
+target_include_directories(optimize PRIVATE src/include ${GUROBI_INCLUDE_DIR})
+target_link_libraries(optimize PRIVATE 
+    ${GUROBI_CPP_LIBRARY} 
+    ${GUROBI_LIBRARY} 
+    Threads::Threads
+    nlohmann_json::nlohmann_json
+    dlib::dlib
 )
 
 if(MSVC)
     target_compile_options(${PROJECT_NAME} PRIVATE /W4)
+    target_compile_options(optimize PRIVATE /W4)
 else()
     target_compile_options(${PROJECT_NAME} PRIVATE -Wall -Wextra -O3)
+    target_compile_options(optimize PRIVATE -Wall -Wextra -O3)
 endif()
 
 enable_testing()
@@ -72,7 +108,7 @@ foreach(test_file ${TEST_SOURCES})
     
     add_executable(${test_name} 
         ${test_file}
-        src/EVCSP.cpp
+        ${COMMON_SOURCES}
     )
     
     target_include_directories(${test_name} PRIVATE src/include ${GUROBI_INCLUDE_DIR})
@@ -84,6 +120,7 @@ foreach(test_file ${TEST_SOURCES})
             GTest::gtest
             GTest::gtest_main
             nlohmann_json::nlohmann_json
+            dlib::dlib
     )
     
     add_test(NAME ${test_name} COMMAND ${test_name})
