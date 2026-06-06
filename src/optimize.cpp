@@ -15,6 +15,10 @@ struct Context {
     int width;
     int height;
     int max_stations_per_cell;
+    double d_attract;
+    double w_attract;
+    double h_repellant;
+    double w_repellant;
     double budget;
     std::pair<double, double> stations_powers;
     std::pair<double, double> initial_costs;
@@ -33,7 +37,8 @@ double objective_function(const dlib::matrix<double, 0, 1>& params, const Contex
     MetaheuristicModel model(
         ctx.max_stations_per_cell,
         bacteria_count, hemotaxis_steps, swimming_steps,
-        reproduction_steps, elimination_steps, elimination_prob, ctx.budget
+        reproduction_steps, elimination_steps, elimination_prob, 
+        ctx.d_attract, ctx.w_attract, ctx.h_repellant, ctx.w_repellant, ctx.budget
     );
 
     model(
@@ -43,7 +48,7 @@ double objective_function(const dlib::matrix<double, 0, 1>& params, const Contex
         ctx.maintenance_costs
     );
 
-    return model.best_cost;
+    return model.get_solution().total_cost;
 }
 
 int main() {
@@ -72,14 +77,19 @@ int main() {
 
     double mip_gap = problem_parameters["mip_gap"].get<double>();
 
-    Maps map_data(
+    ctx.d_attract = hyperparameters["d_attract"].get<double>();
+    ctx.w_attract = hyperparameters["w_attract"].get<double>();
+    ctx.h_repellant = hyperparameters["h_repellant"].get<double>();
+    ctx.w_repellant = hyperparameters["w_repellant"].get<double>();
+
+    Maps map_data{
         ctx.width, 
         ctx.height, 
         distances_costs_map, 
         poi_map, 
         demand_map, 
         land_rental_cost_map
-    );
+    };
     ctx.map_data = &map_data;
 
     dlib::matrix<double, 0, 1> lower_bound(6), upper_bound(6);
@@ -95,12 +105,13 @@ int main() {
         dlib::max_function_calls(50)
     );
 
-    MetaheuristicModel meta_solver(
+    MetaheuristicModel meta_solver{
         ctx.max_stations_per_cell,
         static_cast<int>(result.x(0)), static_cast<int>(result.x(1)),
         static_cast<int>(result.x(2)), static_cast<int>(result.x(3)),
-        static_cast<int>(result.x(4)), result.x(5), ctx.budget
-    );
+        static_cast<int>(result.x(4)), result.x(5), 
+        ctx.d_attract, ctx.w_attract, ctx.h_repellant, ctx.w_repellant, ctx.budget
+    };
 
     meta_solver(
         map_data,
@@ -109,7 +120,7 @@ int main() {
         ctx.maintenance_costs
     );
 
-    LinearProgrammingModel solver(ctx.width, ctx.height, ctx.max_stations_per_cell, ctx.budget, mip_gap);
+    LinearProgrammingModel solver{ctx.width, ctx.height, ctx.max_stations_per_cell, ctx.budget, mip_gap};
     solver(
         map_data,
         ctx.stations_powers,
@@ -117,10 +128,17 @@ int main() {
         ctx.maintenance_costs
     );
 
-    Evaluator evaluator(map_data, ctx.stations_powers, ctx.initial_costs, ctx.maintenance_costs, ctx.budget);
+    Evaluator evaluator{
+        map_data,
+        ctx.stations_powers,
+        ctx.initial_costs,
+        ctx.maintenance_costs,
+        ctx.max_stations_per_cell,
+        ctx.budget
+    };
 
     const auto& solver_solution = solver.get_solution();
-    const auto& meta_solver_solution = *meta_solver.best_bacterium;
+    const auto& meta_solver_solution = meta_solver.get_solution();
 
     std::println("--- Optimization Finished ---");
     std::println("Best Hyperparameters found: B:{} H:{} S:{} R:{} E:{} Prob:{:.2f}", 

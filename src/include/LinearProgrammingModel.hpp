@@ -9,22 +9,24 @@
 
 #include "Model.hpp"
 #include "GurobiModel.hpp"
+#include "Solution.hpp"
+#include "SolutionPrinter.hpp"
 #include "Maps.hpp"
 
 /**
  * @brief Electric Vehicle Charging Station Problem.
  * */
-class LinearProgrammingModel : public GurobiModel
+class LinearProgrammingModel : public GurobiModel, public Model
 {
     public:
-        LinearProgrammingModel(
+        explicit LinearProgrammingModel(
             int grid_width,
             int grid_height,
             int max_stations_per_cell,
             double budget
         );
 
-        LinearProgrammingModel(
+        explicit LinearProgrammingModel(
             int grid_width,
             int grid_height,
             int max_stations_per_cell,
@@ -33,11 +35,11 @@ class LinearProgrammingModel : public GurobiModel
         );
 
         void operator()(
-            const Maps& _map_data,
+            const Maps &_map_data,
             std::pair<double, double> _stations_powers,
             std::pair<double, double> _initial_costs,
             std::pair<double, double> _maintenance_costs
-        );
+        ) override;
 
         void build_variables() override;
 
@@ -121,19 +123,9 @@ class LinearProgrammingModel : public GurobiModel
          */
         void build_constraints() override;
 
-        void print_solution();
-        
-        void print_demand_distribution();
-        
-        struct Solution {
-            std::vector<std::vector<int>> station_location;
-            std::vector<std::vector<int>> l2_station_location;
-            std::vector<std::vector<int>> l3_station_location;
-            std::vector<std::vector<std::vector<std::vector<double>>>> demand_allocation_map;
-            double total_cost;
-        };
+        Solution get_solution() const override;
 
-        Solution get_solution() const;
+        std::unique_ptr<SolutionPrinter> printer;
 
     private:
         GRBEnv env;
@@ -171,6 +163,7 @@ class LinearProgrammingModel : public GurobiModel
          * */
         std::vector<std::vector<std::vector<std::vector<GRBVar>>>> demand_allocation_map;
 
+        static constexpr double EPSILON = 1e-4; 
         static constexpr double DEFAULT_MIP_GAP = 0.01;
         static constexpr char *MODEL_NAME = "Electric Vehicle Charging Station Problem";
 };

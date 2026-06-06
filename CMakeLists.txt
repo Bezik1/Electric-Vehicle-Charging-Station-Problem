@@ -57,6 +57,8 @@ set(COMMON_SOURCES
     src/Evaluator.cpp
     src/Bacterium.cpp
     src/Maps.cpp
+    src/Validator.cpp
+    src/SolutionPrinter.cpp
 )
 
 add_executable(${PROJECT_NAME} 

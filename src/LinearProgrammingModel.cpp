@@ -32,6 +32,8 @@ void LinearProgrammingModel::operator()(
     initial_costs = std::move(_initial_costs);
     maintenance_costs = std::move(_maintenance_costs);
 
+    printer = std::make_unique<SolutionPrinter>(*map_data);
+
     demand_allocation_map.assign(
         grid_width, std::vector<std::vector<std::vector<GRBVar>>>(
             grid_height, 
@@ -199,138 +201,34 @@ void LinearProgrammingModel::build_criterion()
     model.update();
 }
 
-LinearProgrammingModel::Solution LinearProgrammingModel::get_solution() const {
-    LinearProgrammingModel::Solution sol;
+Solution LinearProgrammingModel::get_solution() const {
+    Solution solution;
     
-    sol.station_location.assign(grid_width, std::vector<int>(grid_height));
-    sol.l2_station_location.assign(grid_width, std::vector<int>(grid_height));
-    sol.l3_station_location.assign(grid_width, std::vector<int>(grid_height));
-    sol.demand_allocation_map.assign(grid_width, 
+    solution.station_location.assign(grid_width, std::vector<int>(grid_height));
+    solution.l2_station_location.assign(grid_width, std::vector<int>(grid_height));
+    solution.l3_station_location.assign(grid_width, std::vector<int>(grid_height));
+    solution.demand_allocation_map.assign(grid_width, 
         std::vector<std::vector<std::vector<double>>>(grid_height, 
             std::vector<std::vector<double>>(grid_width, 
                 std::vector<double>(grid_height, 0.0))));
 
-    try {
-        int optim_status = model.get(GRB_IntAttr_Status);
+    solution.total_cost = model.get(GRB_DoubleAttr_ObjVal);
 
-        if (optim_status == GRB_OPTIMAL || optim_status == GRB_SUBOPTIMAL) {
-            sol.total_cost = model.get(GRB_DoubleAttr_ObjVal);
+    for (int i = 0; i < grid_width; ++i) {
+        for (int j = 0; j < grid_height; ++j) {
+            solution.station_location[i][j] = (int)(station_location[i][j].get(GRB_DoubleAttr_X) + 0.5);
+            solution.l2_station_location[i][j] = (int)(l2_station_location[i][j].get(GRB_DoubleAttr_X) + 0.5);
+            solution.l3_station_location[i][j] = (int)(l3_station_location[i][j].get(GRB_DoubleAttr_X) + 0.5);
 
-            for (int i = 0; i < grid_width; ++i) {
-                for (int j = 0; j < grid_height; ++j) {
-                    sol.station_location[i][j] = (int)(station_location[i][j].get(GRB_DoubleAttr_X) + 0.5);
-                    sol.l2_station_location[i][j] = (int)(l2_station_location[i][j].get(GRB_DoubleAttr_X) + 0.5);
-                    sol.l3_station_location[i][j] = (int)(l3_station_location[i][j].get(GRB_DoubleAttr_X) + 0.5);
-
-                    for (int m = 0; m < grid_width; ++m) {
-                        for (int n = 0; n < grid_height; ++n) {
-                            if (map_data->get_demand_at(m, n) > 0 && !std::isinf(map_data->get_distance(m, n, i, j))) {
-                                sol.demand_allocation_map[m][n][i][j] = demand_allocation_map[m][n][i][j].get(GRB_DoubleAttr_X);
-                            }
-                        }
+            for (int m = 0; m < grid_width; ++m) {
+                for (int n = 0; n < grid_height; ++n) {
+                    if (map_data->get_demand_at(m, n) > 0 && !std::isinf(map_data->get_distance(m, n, i, j))) {
+                        solution.demand_allocation_map[m][n][i][j] = demand_allocation_map[m][n][i][j].get(GRB_DoubleAttr_X);
                     }
                 }
             }
-        } else {
-            std::cerr << "Model has not been optimized or no solution found!" << std::endl;
-            sol.total_cost = std::numeric_limits<double>::infinity();
         }
-    } catch (GRBException& e) {
-        std::cerr << "Error during getting solution: " << e.getMessage() << std::endl;
     }
 
-    return sol;
-}
-
-void LinearProgrammingModel::print_solution()
-{
-    try {
-        int optim_status = model.get(GRB_IntAttr_Status);
-        if (optim_status != GRB_OPTIMAL && optim_status != GRB_SUBOPTIMAL) return;
-
-        for (int n = 0; n < grid_width; ++n)
-        {
-            for (int m = 0; m < grid_height; ++m)
-            {
-                if (!map_data->isPassable(n, m))
-                {
-                    std::cout << " X ";
-                }
-                else
-                {
-                    if (station_location[n][m].get(GRB_DoubleAttr_X) > 0.5)
-                    {
-                        int l2_count = std::round(l2_station_location[n][m].get(GRB_DoubleAttr_X));
-                        int l3_count = std::round(l3_station_location[n][m].get(GRB_DoubleAttr_X));
-
-                        if (l2_count > 0 && l3_count > 0)
-                            std::cout << l2_count << ":" << l3_count;
-                        else if (l2_count > 0)
-                            std::cout << "2:" << l2_count;
-                        else if (l3_count > 0)
-                            std::cout << "3:" << l3_count;
-                        else
-                            std::cout << " 0 ";
-                    }
-                    else
-                    {
-                        if (map_data->get_poi_at(n, m) == 0)
-                            std::cout << " - ";
-                        else
-                            std::cout << " . ";
-                    }
-                }
-                std::cout << " ";
-            }
-            std::cout << "\n";
-        }
-    } catch (...) {}
-}
-
-void LinearProgrammingModel::print_demand_distribution()
-{
-    constexpr double EPSILON = 1e-4; 
-    
-    try {
-        int optim_status = model.get(GRB_IntAttr_Status);
-        if (optim_status != GRB_OPTIMAL && optim_status != GRB_SUBOPTIMAL) return;
-
-        for (int n = 0; n < grid_width; ++n)
-        {
-            for (int m = 0; m < grid_height; ++m)
-            {
-                double current_demand = map_data->get_demand_at(n, m);
-                
-                if (current_demand > 0.0)
-                {
-                    std::cout << "Point (" << m << ", " << n << ") "
-                              << "[Full-Demand: " << std::fixed << std::setprecision(1) << current_demand << " kWh]:\n";
-                    
-                    for (int i = 0; i < grid_width; ++i)
-                    {
-                        for (int j = 0; j < grid_height; ++j)
-                        {
-                            double dist = map_data->get_distance(n, m, i, j);
-                            if (!std::isinf(dist))
-                            {
-                                double allocation_ratio = demand_allocation_map[n][m][i][j].get(GRB_DoubleAttr_X);
-
-                                if (allocation_ratio > EPSILON)
-                                {
-                                    double allocated_kwh = current_demand * allocation_ratio;
-                                    
-                                    std::cout << "  -> " << std::setprecision(1) << (allocation_ratio * 100.0) << "% demand "
-                                              << "(" << allocated_kwh << " kWh) "
-                                              << "goes to station: (" << i << ", " << j << ") "
-                                              << "| distance: " << std::setprecision(2) << dist << "\n";
-                                }
-                            }
-                        }
-                    }
-                    std::cout << "----------------------------------------------------------------------\n";
-                }
-            }
-        }
-    } catch (...) {}
-    std::cout << "======================================================================\n\n";
+    return solution;
 }

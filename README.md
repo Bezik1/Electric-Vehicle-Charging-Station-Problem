@@ -80,14 +80,18 @@ Represents rental cost of specific point of intreset on the map.
 
 <img src="assets/land_rental_cost_map.png">
 
-### Solution
-For this particular problem, following model solution was created:
+#### BFOA Solution
+<img src="assets/bfoa_solution.png">
 
-#### Map
-<img src="assets/solution.png">
+#### Gurobi Solution
+<img src="assets/gurobi_solution.png">
 
-#### Demand Allocations
-<img src="assets/solution_allocations.png">
+#### Comparison
+We can see that linear programming model is slightly better,
+however we can tune meta heuristic model, to be much faster
+than the gurobi based solution.
+
+<img src="assets/comparison.png">
 
 ## Technologies
 <p align="center">

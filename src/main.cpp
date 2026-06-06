@@ -1,6 +1,7 @@
 #include "LinearProgrammingModel.hpp"
 #include "MetaheuristicModel.hpp"
 #include "Evaluator.hpp"
+#include "Validator.hpp"
 #include "Maps.hpp"
 
 #include <nlohmann/json.hpp>
@@ -42,30 +43,46 @@ int main()
     int elimination_dispersal_steps = hyperparameters["elimination_dispersal_steps"].get<int>();
     double elimination_dispersal_prob = hyperparameters["elimination_dispersal_prob"].get<double>();
 
-    Maps map_data(
+    double d_attract = hyperparameters["d_attract"].get<double>();
+    double w_attract = hyperparameters["w_attract"].get<double>();
+    double h_repellant = hyperparameters["h_repellant"].get<double>();
+    double w_repellant = hyperparameters["w_repellant"].get<double>();
+
+    Maps map_data{
         width, 
         height, 
         distances_costs_map, 
         poi_map, 
         demand_map, 
         land_rental_cost_map
-    );
+    };
 
-    LinearProgrammingModel solver(width, height, max_stations_per_cell, budget, mip_gap);
+    LinearProgrammingModel solver{width, height, max_stations_per_cell, budget, mip_gap};
 
-    MetaheuristicModel meta_solver(
+    MetaheuristicModel meta_solver{
         max_stations_per_cell, bacteria_count,
         hemotaxis_steps, swimming_steps, reproduction_steps,
-        elimination_dispersal_steps, elimination_dispersal_prob, budget
-    );
+        elimination_dispersal_steps, elimination_dispersal_prob, 
+        d_attract, w_attract, h_repellant, w_repellant, budget
+    };
 
-    Evaluator evaluator(
+    Evaluator evaluator{
         map_data,
         stations_powers,
         initial_costs,
         maintenance_costs,
+        max_stations_per_cell,
         budget
-    );
+    };
+
+    Validator validator{
+        map_data,
+        max_stations_per_cell,
+        stations_powers,
+        initial_costs,
+        maintenance_costs,
+        budget
+    };
 
     meta_solver(
         map_data,
@@ -74,8 +91,9 @@ int main()
         maintenance_costs
     );
 
-    meta_solver.print_solution();
-    meta_solver.print_demand_distribution();
+    const auto& meta_solver_solution = meta_solver.get_solution();
+    meta_solver.printer->print_map(meta_solver_solution);
+    meta_solver.printer->print_demand_distribution(meta_solver_solution);
 
     solver(
         map_data,
@@ -84,11 +102,9 @@ int main()
         maintenance_costs
     );
 
-    solver.print_solution();
-    solver.print_demand_distribution();
-
     const auto& solver_solution = solver.get_solution();
-    const auto& meta_solver_solution = *meta_solver.best_bacterium;
+    solver.printer->print_map(solver_solution);
+    solver.printer->print_demand_distribution(solver_solution);
 
     double linear_programming_cost = evaluator.evaluate(
         solver_solution.station_location,
@@ -97,7 +113,10 @@ int main()
         solver_solution.demand_allocation_map
     );
 
-    std::println("Linear Programming Model: {:.2f}", linear_programming_cost);
+    std::println("Linear Programming Model: Cost: {:.2f}, Valid: {}.",
+        linear_programming_cost,
+        validator.validate(solver_solution)
+    );
 
     double meta_heuristic_cost = evaluator.evaluate(
         meta_solver_solution.station_location,
@@ -106,10 +125,18 @@ int main()
         meta_solver_solution.demand_allocation_map
     );
 
-    std::println("Meta Heuristic Model: {:.2f}", meta_heuristic_cost);
+    std::println(
+        "Meta Heuristic Model: Cost: {:.2f}, Valid: {}.",
+        meta_heuristic_cost,
+        validator.validate(meta_solver_solution)
+    );
 
     double optimality_gap = (meta_heuristic_cost - linear_programming_cost) / meta_heuristic_cost;
-    std::println("Optimality Gap: {:.2f}%", optimality_gap * 100);
+
+    std::println(
+        "Optimality Gap: Cost: {:.2f}%",
+        optimality_gap * 100
+    );
 
     return 0;
 }
