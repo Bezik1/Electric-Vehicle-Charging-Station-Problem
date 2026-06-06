@@ -5,9 +5,10 @@
 /**
  * @brief This interface purpose is to be used, as a template for
  * creating new optimzation problems using an elegant, objective approach.
+ * It is designed to be used for gurobi using class instances.
  * 
  */
-class Problem
+class GurobiModel
 {
 public:
 
@@ -29,5 +30,5 @@ public:
      */
     virtual void build_constraints() = 0;
 
-    virtual ~Problem() = default;
+    virtual ~GurobiModel() = default;
 };

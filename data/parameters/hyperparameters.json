@@ -1,0 +1,12 @@
+{
+    "bacteria_count": 50,
+    "hemotaxis_steps": 25,
+    "swimming_steps": 4,
+    "reproduction_steps": 4,
+    "elimination_dispersal_steps": 2,
+    "elimination_dispersal_prob": 0.20,
+    "d_attract": 0.1,
+    "w_attract": 0.2,
+    "h_repellant": 0.1,
+    "w_repellant": 10.0
+}

@@ -17,6 +17,23 @@ to download created maps in .json format managable, by this C++ application.
 Downloaded jso file containing maps, must then be placed in `./data` folder. This
 location is default directory, where model tries to find `maps.json` file.
 
+## Hyperparameters
+
+Hyperparameters of EVCSP model are located in `./data/hyperparameters.json` directory.
+They include:
+- max_stations_per_cell (int): Maximal number of stations we can put in one cell.
+- budget (double): Budget for the whole project.
+- mip_gap (double): Approximated variation from optimal solution.
+- stations_powers (double[2]): Powers of each station.
+- initial_costs (double[2]): Cost of installation of each station.
+- maintenance_costs (double[2]): Daily maintanance cost for each station.
+
+## Documentation
+
+Formal paper for this problem, one can find in `./docs/EVCSP_2026.pdf` directory.
+It contains mathematical formulation and comparison, between meta heuristic and
+linear programming approaches of solving this problem.
+
 ## Commands
 
 ```bash
@@ -63,14 +80,18 @@ Represents rental cost of specific point of intreset on the map.
 
 <img src="assets/land_rental_cost_map.png">
 
-### Solution
-For this particular problem, following model solution was created:
+#### BFOA Solution
+<img src="assets/bfoa_solution.png">
 
-#### Map
-<img src="assets/solution.png">
+#### Gurobi Solution
+<img src="assets/gurobi_solution.png">
 
-#### Demand Allocations
-<img src="assets/solution_allocations.png">
+#### Comparison
+We can see that linear programming model is slightly better,
+however we can tune meta heuristic model, to be much faster
+than the gurobi based solution.
+
+<img src="assets/comparison.png">
 
 ## Technologies
 <p align="center">
