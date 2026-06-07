@@ -10,7 +10,7 @@
 
 int main() 
 {
-    std::ifstream map_file("data/maps/maps.json");
+    std::ifstream map_file("data/maps/30x30_map.json");
     std::ifstream hyperparameters_file("data/parameters/hyperparameters.json");
     std::ifstream problem_parameters_file("data/parameters/problem_parameters.json");
     
