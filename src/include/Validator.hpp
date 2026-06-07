@@ -4,7 +4,7 @@
 #include "Solution.hpp"
 
 /**
- * @brief Responsible for verifying if a Solution adheres to all hard constraints.
+ * @brief Responsible for verifying if a Solution sticks to all hard constraints.
  * Ensures that a solution is technically and financially feasible before it can be
  * considered a valid proposal for the infrastructure layout.
  */

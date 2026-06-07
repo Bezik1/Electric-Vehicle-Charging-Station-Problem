@@ -53,6 +53,18 @@ cmake --build build
 
 # Runs app.
 ./build/EVCSP_Application
+
+# Generates documentation
+doxygen -g
+
+# Updates documentation
+doxygen
+
+# Updates documentation settings
+doxygen Doxyfile
+
+# Run documentation
+./docs/html/index.html
 ```
 
 ## Maps
@@ -61,24 +73,24 @@ cmake --build build
 Represents obstacles and costs from travelling from
 given node to another.
 
-<img src="assets/distance_map.png">
+<img src="assets/20x20/distance_map.png">
 
 ### Point Of Intrest (POI) Map
 Represents the locations, where we possibly can build
 our electric vehicle charging stations.
 
-<img src="assets/poi_map.png">
+<img src="assets/20x20/poi_map.png">
 
 ### Demand Map
 Represents energy consumption demand of electric vehicle users,
 at a given piece of terrain.
 
-<img src="assets/demand_map.png">
+<img src="assets/20x20/demand_map.png">
 
 ### Land Rental Cost Map
 Represents rental cost of specific point of intreset on the map.
 
-<img src="assets/land_rental_cost_map.png">
+<img src="assets/20x20/land_rental_cost_map.png">
 
 #### BFOA Solution
 <img src="assets/bfoa_solution.png">

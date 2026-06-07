@@ -1,12 +1,12 @@
 {
-    "bacteria_count": 50,
-    "hemotaxis_steps": 25,
-    "swimming_steps": 4,
-    "reproduction_steps": 4,
+    "bacteria_count": 200,
+    "hemotaxis_steps": 40,
+    "swimming_steps": 8,
+    "reproduction_steps": 6,
     "elimination_dispersal_steps": 2,
-    "elimination_dispersal_prob": 0.20,
-    "d_attract": 0.1,
-    "w_attract": 0.2,
-    "h_repellant": 0.1,
-    "w_repellant": 10.0
+    "elimination_dispersal_prob": 0.25,
+    "d_attract": 0.05,
+    "w_attract": 0.1,
+    "h_repellant": 0.2,
+    "w_repellant": 20.0
 }
