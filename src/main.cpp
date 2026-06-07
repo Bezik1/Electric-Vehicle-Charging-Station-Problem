@@ -7,10 +7,11 @@
 #include <nlohmann/json.hpp>
 #include <fstream>
 #include <iostream>
+#include <chrono>
 
 int main() 
 {
-    std::ifstream map_file("data/maps/maps.json");
+    std::ifstream map_file("data/maps/30x30_map.json");
     std::ifstream hyperparameters_file("data/parameters/hyperparameters.json");
     std::ifstream problem_parameters_file("data/parameters/problem_parameters.json");
     
@@ -84,6 +85,8 @@ int main()
         budget
     };
 
+    auto start_meta = std::chrono::high_resolution_clock::now();
+
     meta_solver(
         map_data,
         stations_powers,
@@ -91,9 +94,14 @@ int main()
         maintenance_costs
     );
 
+    auto end_meta = std::chrono::high_resolution_clock::now();
+    std::chrono::duration<double> elapsed_meta = end_meta - start_meta;
+
     const auto& meta_solver_solution = meta_solver.get_solution();
     meta_solver.printer->print_map(meta_solver_solution);
     meta_solver.printer->print_demand_distribution(meta_solver_solution);
+
+    auto start_milp = std::chrono::high_resolution_clock::now();
 
     solver(
         map_data,
@@ -101,6 +109,9 @@ int main()
         initial_costs,
         maintenance_costs
     );
+
+    auto end_milp = std::chrono::high_resolution_clock::now();
+    std::chrono::duration<double> elapsed_milp = end_milp - start_milp;
 
     const auto& solver_solution = solver.get_solution();
     solver.printer->print_map(solver_solution);
@@ -113,9 +124,10 @@ int main()
         solver_solution.demand_allocation_map
     );
 
-    std::println("Linear Programming Model: Cost: {:.2f}, Valid: {}.",
+    std::println("Linear Programming Model: Cost: {:.2f}, Valid: {}, Time: {:.3f}s.",
         linear_programming_cost,
-        validator.validate(solver_solution)
+        validator.validate(solver_solution),
+        elapsed_milp.count()
     );
 
     double meta_heuristic_cost = evaluator.evaluate(
@@ -126,9 +138,10 @@ int main()
     );
 
     std::println(
-        "Meta Heuristic Model: Cost: {:.2f}, Valid: {}.",
+        "Meta Heuristic Model: Cost: {:.2f}, Valid: {}, Time: {:.3f}s.",
         meta_heuristic_cost,
-        validator.validate(meta_solver_solution)
+        validator.validate(meta_solver_solution),
+        elapsed_meta.count()
     );
 
     double optimality_gap = (meta_heuristic_cost - linear_programming_cost) / meta_heuristic_cost;

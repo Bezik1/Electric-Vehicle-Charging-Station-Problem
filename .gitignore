@@ -4,6 +4,10 @@
 
 # --- Compiled Objects, Libraries, and Executables ---
 /data/*
+/docs/html/*
+/docs/latex/*
+
+
 *.a
 *.lib
 *.so
