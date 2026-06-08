@@ -3,7 +3,12 @@
 # ==============================================================================
 
 # --- Compiled Objects, Libraries, and Executables ---
+
+/docs/html*
+/docs/latex/*
+
 /data/*
+
 /docs/html/*
 /docs/latex/*
 

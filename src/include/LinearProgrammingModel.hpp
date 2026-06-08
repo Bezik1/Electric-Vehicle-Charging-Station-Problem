@@ -165,5 +165,5 @@ class LinearProgrammingModel : public GurobiModel, public Model
 
         static constexpr double EPSILON = 1e-4; 
         static constexpr double DEFAULT_MIP_GAP = 0.01;
-        static constexpr char *MODEL_NAME = "Electric Vehicle Charging Station Problem";
+        static constexpr const char *MODEL_NAME = "Electric Vehicle Charging Station Problem";
 };

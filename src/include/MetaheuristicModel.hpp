@@ -5,6 +5,8 @@
 #include <memory>
 #include <limits>
 #include <variant>
+#include <mutex>
+#include <thread>
 
 #include "Maps.hpp"
 #include "Model.hpp"
@@ -15,12 +17,26 @@
 #include "SolutionPrinter.hpp"
 
 /**
+ * @brief Copy of the l2 and l3 station locations. It's purpose is to hold
+ * information about station locations of each bacterium between each hemotaxis
+ * step to pass this information for calculation of swarming effect.
+ * 
+ * This structure is necessary for the correct working mechanism of multi-threading
+ * in this application.
+ * 
+ */
+struct BacteriumSnapshot {
+    std::vector<std::vector<int>> l2_station_location;
+    std::vector<std::vector<int>> l3_station_location;
+};
+
+/**
  * @brief MetaheuristicModel implements BFO meta heuristic algorithm. It is used
  * to solve EVCSP. It creates and manages the lifecycle of bacterias in order to generate
- * optimal solution. BFOA concentrates on the movement of bacterium towards the best solution. 
+ * optimal solution. BFOA concentrates on the movement of bacterium towards the best solution.
  * To do that bacterias are using tumble, swim and reproduction mechanism. MetaheuristicModel
  * additionally resets and eliminates some part of the population to avoid stagnation.
- * 
+ *
  */
 class MetaheuristicModel : public Model
 {
@@ -37,7 +53,8 @@ public:
         double w_attract,
         double h_repellant,
         double w_repellant,
-        double budget
+        double budget,
+        int num_threads = DEFAULT_NUM_THREADS
     );
 
     void operator()(
@@ -110,9 +127,14 @@ private:
      * 
      * 
      * @param current_bacterium Bacterium that should be affected by the swarming effect.
+     * @param snapshot Copy of the l2 and l3 station locations.
+     * 
      * @return double 
      */
-    double calculate_swarming_effect(const Bacterium& current_bacterium) const;
+    double calculate_swarming_effect(
+        const Bacterium& current_bacterium,
+        const std::vector<BacteriumSnapshot>& snapshot
+    ) const;
 
     
     /**
@@ -132,7 +154,7 @@ private:
      * 
      */
     double best_cost = std::numeric_limits<double>::infinity();
-    
+
     const Maps* maps = nullptr;
     std::unique_ptr<Validator> validator = nullptr;
     std::unique_ptr<Evaluator> evaluator = nullptr;
@@ -154,4 +176,9 @@ private:
     int reproduction_steps;
     int elimination_dispersal_steps;
     double elimination_dispersal_prob;
+
+    int num_threads;
+    std::mutex best_solution_mutex;
+
+    static constexpr int DEFAULT_NUM_THREADS = 10;
 };
