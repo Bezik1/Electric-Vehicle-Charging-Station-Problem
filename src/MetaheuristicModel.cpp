@@ -1,10 +1,13 @@
 #include "MetaheuristicModel.hpp"
+
 #include <queue>
 #include <random>
 #include <cmath>
 #include <algorithm>
 #include <iostream>
 #include <iomanip>
+#include <mutex>
+#include <thread>
 
 MetaheuristicModel::MetaheuristicModel(
         int max_stations_per_cell,
@@ -18,7 +21,8 @@ MetaheuristicModel::MetaheuristicModel(
         double w_attract,
         double h_repellant,
         double w_repellant,
-        double budget
+        double budget,
+        int num_threads
 ) : max_stations_per_cell{max_stations_per_cell},
     bacteria_count{bacteria_count},
     hemotaxis_steps{hemotaxis_steps},
@@ -30,7 +34,8 @@ MetaheuristicModel::MetaheuristicModel(
     w_attract{w_attract},
     h_repellant{h_repellant},
     w_repellant{w_repellant},
-    budget{budget}
+    budget{budget},
+    num_threads{num_threads}
 {}
 
 void MetaheuristicModel::operator()(
@@ -67,21 +72,22 @@ void MetaheuristicModel::operator()(
     optimization_loop();
 }
 
-double MetaheuristicModel::calculate_swarming_effect(const Bacterium& current_bacterium) const
+double MetaheuristicModel::calculate_swarming_effect(
+    const Bacterium& current_bacterium,
+    const std::vector<BacteriumSnapshot>& snapshot
+) const
 {
     double swarming_cost = 0.0;
 
-    for (const auto& other : colony)
+    for (const auto& other : snapshot)
     {
-        if (!other) continue;
-
         double distance_sq = 0.0;
         for (int i = 0; i < maps->get_width(); ++i)
         {
             for (int j = 0; j < maps->get_height(); ++j)
             {
-                double diff_l2 = current_bacterium.l2_station_location[i][j] - other->l2_station_location[i][j];
-                double diff_l3 = current_bacterium.l3_station_location[i][j] - other->l3_station_location[i][j];
+                double diff_l2 = current_bacterium.l2_station_location[i][j] - other.l2_station_location[i][j];
+                double diff_l3 = current_bacterium.l3_station_location[i][j] - other.l3_station_location[i][j];
                 distance_sq += (diff_l2 * diff_l2) + (diff_l3 * diff_l3);
             }
         }
@@ -93,6 +99,8 @@ double MetaheuristicModel::calculate_swarming_effect(const Bacterium& current_ba
 
 void MetaheuristicModel::optimization_loop()
 {
+    const int batch_size = (bacteria_count + num_threads - 1) / num_threads;
+    
     static std::random_device rd;
     static std::mt19937 gen(rd());
     std::uniform_real_distribution<> dis(0.0, 1.0);
@@ -115,36 +123,68 @@ void MetaheuristicModel::optimization_loop()
         {
             for (int j = 0; j < hemotaxis_steps; ++j)
             {
-                for (auto& bacterium : colony) {
-                    bacterium->update(*evaluator);
-                    double old_fitness = bacterium->current_cost + calculate_swarming_effect(*bacterium);
-                    
-                    bacterium->tumble();
-                    bacterium->swim();
-                    bacterium->update(*evaluator);
-                    
-                    double current_fitness = bacterium->current_cost + calculate_swarming_effect(*bacterium);
-                    
-                    int m = 0;
-                    while (m < swimming_steps) {
-                        if (bacterium->current_cost < best_cost) {
-                            best_cost = bacterium->current_cost;
-                            best_bacterium = std::make_unique<Bacterium>(*bacterium);
-                        }
-
-                        if (current_fitness >= old_fitness)
-                            break;
-
-                        old_fitness = current_fitness;
-                        bacterium->swim();
-                        bacterium->update(*evaluator);
-                        current_fitness = bacterium->current_cost + calculate_swarming_effect(*bacterium);
-
-                        m++;
-                    }
-                    bacterium->health += current_fitness;
+                std::vector<BacteriumSnapshot> snapshot;
+                snapshot.reserve(bacteria_count);
+                for (const auto& bacterium : colony) {
+                    snapshot.push_back({
+                        bacterium->l2_station_location,
+                        bacterium->l3_station_location
+                    });
                 }
 
+                {
+                    std::vector<std::jthread> workers;
+                    for (int t = 0; t < num_threads; ++t) {
+                        int start_idx = t * batch_size;
+                        int end_idx = std::min((t + 1) * batch_size, bacteria_count);
+
+                        if (start_idx >= end_idx) continue;
+
+                        workers.emplace_back([&, start_idx, end_idx, snapshot_ref = std::cref(snapshot)]()
+                        {
+                            double local_best_cost = std::numeric_limits<double>::infinity();
+                            int local_best_idx = -1;
+
+                            for (int i = start_idx; i < end_idx; ++i) {
+                                auto& bacterium = *colony[i];
+                                bacterium.update(*evaluator);
+                                double old_fitness = bacterium.current_cost + calculate_swarming_effect(bacterium, snapshot_ref);
+                                
+                                bacterium.tumble();
+                                bacterium.swim();
+                                bacterium.update(*evaluator);
+                                
+                                double current_fitness = bacterium.current_cost + calculate_swarming_effect(bacterium, snapshot_ref);
+                                
+                                int m = 0;
+                                while (m < swimming_steps) {
+                                    if (bacterium.current_cost < local_best_cost) {
+                                        local_best_cost = bacterium.current_cost;
+                                        local_best_idx = i;
+                                    }
+
+                                    if (current_fitness >= old_fitness)
+                                        break;
+
+                                    old_fitness = current_fitness;
+                                    bacterium.swim();
+                                    bacterium.update(*evaluator);
+                                    current_fitness = bacterium.current_cost + calculate_swarming_effect(bacterium, snapshot_ref);
+                                    m++;
+                                }
+                                bacterium.health += current_fitness;
+                            }
+
+                            if (local_best_idx != -1) {
+                                std::lock_guard<std::mutex> lock(best_solution_mutex);
+                                if (local_best_cost < best_cost) {
+                                    best_cost = local_best_cost;
+                                    best_bacterium = std::make_unique<Bacterium>(*colony[local_best_idx]);
+                                }
+                            }
+                        });
+                    }
+                }
                 const auto& solution = get_solution();
                 printer->print_iteration(
                     solution,
@@ -160,11 +200,23 @@ void MetaheuristicModel::optimization_loop()
             });
             
             int half_size = bacteria_count / 2;
-            for (int i = 0; i < half_size; ++i)
             {
-                colony[i + half_size] = std::make_unique<Bacterium>(*colony[i]);
-                colony[i]->health = 0;
-                colony[i + half_size]->health = 0;
+                std::vector<std::jthread> repro_workers;
+                int repro_batch = (half_size + num_threads - 1) / num_threads;
+
+                for (int t = 0; t < num_threads; ++t) {
+                    int start = t * repro_batch;
+                    int end = std::min(start + repro_batch, half_size);
+                    if (start >= end) continue;
+
+                    repro_workers.emplace_back([&, start, end]() {
+                        for (int i = start; i < end; ++i) {
+                            colony[i + half_size] = std::make_unique<Bacterium>(*colony[i]);
+                            colony[i]->health = 0;
+                            colony[i + half_size]->health = 0;
+                        }
+                    });
+                }
             }
         }
         
@@ -183,7 +235,6 @@ void MetaheuristicModel::optimization_loop()
 Solution MetaheuristicModel::get_solution() const
 {
     Solution solution;
-
     solution.station_location.assign(maps->get_width(), std::vector<int>(maps->get_height()));
     solution.l2_station_location.assign(maps->get_width(), std::vector<int>(maps->get_height()));
     solution.l3_station_location.assign(maps->get_width(), std::vector<int>(maps->get_height()));
@@ -196,7 +247,6 @@ Solution MetaheuristicModel::get_solution() const
         )
     );
     
-
     solution.total_cost = best_cost;
     if (best_bacterium) {
         for (int i = 0; i < maps->get_width(); ++i)

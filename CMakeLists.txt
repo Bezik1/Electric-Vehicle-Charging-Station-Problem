@@ -19,12 +19,13 @@ FetchContent_Declare(
 
 FetchContent_Declare(
   googletest
-  URL https://github.com/google/googletest/archive/refs/heads/main.zip
+  URL https://github.com/google/googletest/archive/refs/tags/v1.14.0.zip
 )
 
 FetchContent_Declare(
   dlib
-  URL https://github.com/davisking/dlib/archive/refs/heads/master.zip
+  GIT_REPOSITORY https://github.com/davisking/dlib.git
+  GIT_TAG        master
 )
 
 FetchContent_MakeAvailable(json googletest dlib)
