@@ -8,6 +8,11 @@
 /docs/latex/*
 
 /data/*
+
+/docs/html/*
+/docs/latex/*
+
+
 *.a
 *.lib
 *.so

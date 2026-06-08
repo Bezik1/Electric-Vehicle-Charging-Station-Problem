@@ -1,8 +1,14 @@
 \documentclass{article}
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage[polish,english]{babel}
+\usepackage{graphicx}
 \usepackage{graphicx}
 \usepackage{amsmath}  
 \usepackage{amsfonts}  
 \usepackage{bm}
+\usepackage[ruled,vlined]{algorithm2e}
+\usepackage{hyperref}
 
 \title{Electric Vehicle Charging Station Problem}
 \author{Mateusz Adamowicz 284215}
@@ -13,16 +19,18 @@
 \maketitle
 
 \section{Introduction}
-Electric Vehicle Charging Station Problem is optimization problem of choosing locations, number and types of charging stations for electric cars. In this paper linear programming and meta heuristic approach will be evaluated and implemented in order to analyze it deeply.
+Electric Vehicle Charging Station Problem (EVCSP) is an optimization problem of choosing locations, number, and types of charging stations for electric cars. In this paper, linear programming and a metaheuristic approach will be evaluated and implemented in order to analyze the problem deeply.
 
-\section{Mathematical Model}
-EVCSP can be described, by the following mathematical interpretation. 
+\bigskip
+The source code for this project is available at: \url{https://github.com/Bezik1/Electric-Vehicle-Charging-Station-Problem}.
 
+\section{Model}
+EVCSP can be described by the following mathematical interpretation. 
 
 \subsubsection{Arguments}
 Let the grid be defined by dimensions $W \times H$. We define the following sets and parameters:
 
-\begin{itemize}
+\begin{enumerate}
     \item $P_{i,j} \in \{0, 1\}$: POI map, where 1 means a station can be built at $(i,j)$.
     \item $D_{m,n}$: Energy demand at cell $(m,n)$ [kWh].
     \item $R_{i,j}$: Land rental cost at cell $(i,j)$.
@@ -32,14 +40,14 @@ Let the grid be defined by dimensions $W \times H$. We define the following sets
     \item $P_{power}^{L2}, P_{power}^{L3}$: Power capacity of stations.
     \item $B$: Total available budget.
     \item $S_{max}$: Maximum number of stations per cell.
-\end{itemize}
+\end{enumerate}
 
 \subsubsection{Decision Variables}
-\begin{itemize}
+\begin{enumerate}
     \item $x_{i,j} \in \{0, 1\}$: Binary variable, 1 if any station is built at $(i,j)$.
     \item $s_{i,j}^{L2}, s_{i,j}^{L3} \in \mathbb{Z}_{\ge 0}$: Number of L2 and L3 stations at $(i,j)$.
     \item $\alpha_{m,n,i,j} \in [0, 1]$: Fraction of demand from $(m,n)$ assigned to station at $(i,j)$.
-\end{itemize}
+\end{enumerate}
 
 \subsubsection{Objective Function}
 The goal is to minimize the total cost $Z = C_{operator} + C_{users}$:
@@ -58,7 +66,7 @@ where $C_{total} = C_{init} + C_{maint}$.
     \begin{equation}
         \sum_{m,n} D_{m,n} \cdot \alpha_{m,n,i,j} \le (s_{i,j}^{L2} \cdot P_{power}^{L2} + s_{i,j}^{L3} \cdot P_{power}^{L3}) \cdot 24, \quad \forall (i,j)
     \end{equation}
-    \item \textbf{POI and Construction:} Stations only can be built only, at POIs and within limits.
+    \item \textbf{POI and Construction:} Stations can be built only at POIs and within limits.
     \begin{equation}
         s_{i,j}^{L2} + s_{i,j}^{L3} \le S_{max} \cdot x_{i,j}, \quad \forall (i,j)
     \end{equation}
@@ -71,12 +79,101 @@ where $C_{total} = C_{init} + C_{maint}$.
     \end{equation}
 \end{enumerate}
 
-\section{Linear Programming Model}
+\subsubsection{Implementation}
+The mathematical model described above was implemented as a Mixed-Integer Linear Programming (MILP) problem. The solution was obtained using the Gurobi Optimizer \cite{gurobi}, leveraging its high-performance branch-and-cut algorithms to ensure global optimality within the defined constraints.
 
-\section{Meta Heuristic Model}
+\section{Metaheuristic Model}
+To find solutions for large-scale problem instances where classical Mixed-Integer Linear Programming (MILP) becomes computationally inefficient, a metaheuristic algorithm based on \textit{Bacterial Foraging Optimization} (BFO) was implemented. This algorithm, developed based on the theoretical foundations and applications described by Das et al. \cite{das2009bacterial}, is inspired by the foraging behavior of \textit{E. coli} bacteria, utilizing mechanisms of chemotaxis, swarming, reproduction, and elimination-dispersal.
 
-\section{Conclusion}
+\subsubsection{Representation and Population}
+In the model, each bacterium represents a single potential solution to the EVCSP. The state of a bacterium is defined by the matrices of station locations $s_{i,j}^{L2}$ and $s_{i,j}^{L3}$. The fitness function corresponds to the objective function value $Z$, augmented by penalty terms for violating budget constraints or failing to satisfy total energy demand.
+
+\subsubsection{Algorithmic Steps}
+The optimization process consists of four primary nested loops:
+\begin{enumerate}
+    \item \textbf{Chemotaxis:} This phase consists of a \textit{tumble} (changing direction through random modification of station counts in POI cells) and a \textit{swim} (continuing movement in a direction that yields a lower cost).
+    \item \textbf{Swarming:} A communication mechanism between bacteria. It uses attraction and repulsion functions to steer the population toward promising areas while preventing premature convergence to local minima:
+    \begin{equation}
+        J_{sw} = \sum_{i=1}^N \left[ -d_{attr} \exp(-w_{attr} \cdot dist^2) + h_{rep} \exp(-w_{rep} \cdot dist^2) \right]
+    \end{equation}
+    \item \textbf{Reproduction:} After the chemotactic stages, the population is sorted based on cumulative "health" (fitness over its lifetime). The least fit half of the population dies, while the healthier half undergoes cell division (cloning) to maintain a constant population size.
+    \item \textbf{Elimination and Dispersal:} Individuals are removed and replaced by entirely new random solutions with a probability $P_{ed}$. This ensures global exploration and prevents the algorithm from getting trapped in stagnant regions of the search space.
+\end{enumerate}
+
+\subsubsection{BFO Algorithm Pseudocode}
+The following pseudocode outlines the structure of the implemented \texttt{MetaheuristicModel}.
+
+\begin{algorithm}[H]
+\SetAlgoLined
+\KwResult{Best solution (Bacterium with minimal cost)}
+Initialize population of $N$ bacteria randomly within valid POIs\;
+\For{$l = 1$ \KwTo $N_{ed}$ \textit{(Elimination-Dispersal Loop)}}{
+    \For{$k = 1$ \KwTo $N_{re}$ \textit{(Reproduction Loop)}}{
+        \For{$j = 1$ \KwTo $N_{ch}$ \textit{(Chemotaxis Loop)}}{
+            \ForEach{Bacterium $i \in \{1, \dots, N\}$}{
+                Compute Swarming Effect $J_{sw}(i)$\;
+                $J(i, j, k, l) = \text{Evaluate}(i) + J_{sw}(i)$\;
+                \textit{Tumble:} Randomly modify $s_{i,j}$ and validate constraints\;
+                \textit{Swim:} \While{swimming steps $<$ $N_s$ \textbf{and} fitness improves}{
+                    Move in the same direction\;
+                    Update health and cost values\;
+                }
+            }
+        }
+        \textit{Reproduction:} Sort by health, clone the best half, remove the rest\;
+    }
+    \textit{Elimination-Dispersal:} Replace random individuals with probability $P_{ed}$\;
+}
+\caption{Bacterial Foraging Optimization for EVCSP}
+\end{algorithm}
+
+\subsubsection{Modifications}
+In order to properly train this BFO model following modifications were made:
+
+\begin{enumerate}
+    \item \textbf{Change of decision variables:} Station locations, L2 station locations, L3 station locations and demand allocations map were all decision variables in MILP model. This approach in the metaheuristic one were proven to be inefficient. Instead BFO \cite{das2009bacterial} learns only L2 and L3 station maps. Demand allocation map is calculated dynamically using greedy approach to find closest station to the given demand point. Station locations result from L2 and L3 maps.
+
+    \item \textbf{Repair System:} Model needs to repair itself after each change of Bacterium position. This operation is necessary to
+    stick to the constraints of the problem.
+\end{enumerate}
 
 
+\section{Comparison}
+In this section, the performance of the Mixed-Integer Linear Programming (MILP) approach using the Gurobi Optimizer is compared against the Bacterial Foraging Optimization (BFO) metaheuristic. The comparison focuses on the solution quality (objective function value) and computational efficiency across varying grid sizes.
+
+\subsection{Experimental Results}
+The models were tested on synthetic datasets representing different urban scales. The results are summarized in Table \ref{tab:comparison_results}.
+
+\begin{table}[h!]
+
+\centering
+\caption{Comparison of MILP (Gurobi) and Metaheuristic (BFO) results.}
+\label{tab:comparison_results}
+\medskip
+\resizebox{\textwidth}{!}{
+\begin{tabular}{|c|c|c|c|c|c|c|}
+\hline
+\textbf{ID} & \textbf{Grid (W$\times$H)} & \textbf{BFO Cost} & \textbf{MILP Cost} & \textbf{Gap (\%)} & \textbf{BFO Time} & \textbf{MILP Time} \\ \hline
+1 & 10x10 & 316808.00 & 313432.00 & 1.07\% & 0.266 s & 0.092 s \\ \hline
+2 & 20x20 & 675200.00 & 672000.00 & 0.47\% & 1.483 s & 7.053 s \\ \hline
+3 & 30x30 & 4010700.00 & 3774600.00 & 5.89\% & 76.265 s & Timeout \\ \hline
+\end{tabular}%
+}
+
+\end{table}
+
+Timeout - model cant find solution in reasonable time, so data  are taken from up to 5000 s.
+
+\subsection{Conclusion}
+The analysis reveals a significant trade-off between optimality and scalability. The MILP approach, while guaranteeing the global optimum, exhibits exponential growth in computational complexity as the grid size increases. For large-scale urban planning ($100 \times 100$ and above), MILP becomes practically infeasible due to memory and time constraints.
+
+\bigskip
+Conversely, the Bacterial Foraging Optimization (BFO) metaheuristic provides a robust alternative. Although it does not guarantee global optimality, the results show that it consistently achieves solutions with an optimality gap below 6\% compared to MILP. The primary advantage of BFO is its computational efficiency; it delivers near-optimal solutions significantly faster than MILP for large datasets, making it the preferred choice for real-time or large-scale EV infrastructure planning.
+
+\cleardoublepage
+\section{Bibliography}
+\renewcommand{\refname}{\vspace{-2em}}
+\bibliographystyle{plain}
+\bibliography{references}
 
 \end{document}
